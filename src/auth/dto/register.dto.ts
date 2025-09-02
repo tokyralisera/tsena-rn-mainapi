@@ -1,6 +1,6 @@
 import {
+  IsBoolean,
   IsEnum,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -17,16 +17,16 @@ export class RegisterDto {
   @IsString()
   prenomUtilisateur: string;
 
-  @IsInt()
+  @IsString()
   @MaxLength(12, { message: 'Le numero NIF doit contenir 12 chiffres' })
-  NIF: number;
+  NIF: string;
 
-  @IsInt()
+  @IsString()
   @MaxLength(11, { message: 'Le numero STAT doit contenir 11 chiffres' })
-  STAT: number;
+  STAT: string;
 
-  @IsInt()
-  telephone: number;
+  @IsString()
+  telephone: string;
 
   @IsString()
   @MinLength(6, {
@@ -39,9 +39,12 @@ export class RegisterDto {
 
   @IsOptional()
   @IsEnum(Role)
-  role?: Role;
+  role: Role;
 
   @IsOptional()
   @IsEnum(Langue)
-  langue?: Langue;
+  langue: Langue;
+
+  @IsBoolean()
+  isActive: boolean
 }

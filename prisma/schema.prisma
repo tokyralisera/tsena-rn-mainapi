@@ -34,9 +34,9 @@ model Utilisateur {
   id                Int      @id @default(autoincrement())
   nomUtilisateur    String
   prenomUtilisateur String
-  NIF               Int      @unique
-  STAT              Int      @unique
-  telephone         Int      @unique
+  NIF               String      @unique
+  STAT              String      @unique
+  telephone         String      @unique
   password          String
   role              Role     @default(USER)
   sexe              Sexe
