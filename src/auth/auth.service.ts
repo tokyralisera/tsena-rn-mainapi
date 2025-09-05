@@ -110,14 +110,9 @@ export class AuthService {
 
     const { password, ...result } = user;
 
-    const payload = {
-      username: user.telephone,
-      sub: user.id,
-      role: user.role,
-    };
-
     return {
-      access_token: this.jwtService.sign(payload),
+      success: true,
+      statusCode: 201,
       user: result,
       isFirstUser: isFirstUser,
       message: isFirstUser
