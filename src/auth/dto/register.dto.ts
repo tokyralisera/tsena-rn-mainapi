@@ -1,5 +1,4 @@
 import {
-  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -44,7 +43,4 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(Langue)
   langue: Langue;
-
-  @IsBoolean()
-  isActive: boolean
 }

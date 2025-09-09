@@ -16,15 +16,15 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
-  @Post('register')
+  @Post('signup')
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.publicRegister(registerDto);
   }
 
-  @Post('admin/register')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN)
-  async adminRegister(@Body() registerDto: RegisterDto) {
-    return this.authService.adminRegister(registerDto);
-  }
+  // @Post('admin/register')
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.ADMIN, Role.SUPERADMIN)
+  // async adminRegister(@Body() registerDto: RegisterDto) {
+  //   return this.authService.adminRegister(registerDto);
+  // }
 }
