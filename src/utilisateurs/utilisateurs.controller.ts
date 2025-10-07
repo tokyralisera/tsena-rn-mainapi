@@ -10,6 +10,7 @@ import {
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UtilisateursService } from './utilisateurs.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { Utilisateur } from '@prisma/client';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)

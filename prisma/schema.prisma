@@ -34,9 +34,9 @@ model Utilisateur {
   id                Int      @id @default(autoincrement())
   nomUtilisateur    String
   prenomUtilisateur String
-  NIF               String      @unique
-  STAT              String      @unique
-  telephone         String      @unique
+  NIF               String   @unique
+  STAT              String   @unique
+  telephone         String   @unique
   password          String
   role              Role     @default(USER)
   sexe              Sexe
@@ -45,5 +45,96 @@ model Utilisateur {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  publications Publication[]
+
   @@map("utilisateurs")
+}
+
+model Publication {
+  id          Int               @id @default(autoincrement())
+  titre       String
+  description String
+  type        PublicationType   @default(OFFRE)
+  statut      PublicationStatut @default(EN_ATTENTE)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  auteurId Int
+  auteur   Utilisateur        @relation(fields: [auteurId], references: [id], onDelete: Cascade)
+  offre    Offre?
+  images   PublicationImage[]
+
+  @@map("publications")
+}
+
+enum PublicationStatut {
+  EN_ATTENTE
+  VALIDE
+  REJETE
+}
+
+enum PublicationType {
+  OFFRE
+  // DEMANDE 
+  // INFORMATIONS 
+  // LOGISTIQUE
+}
+
+model Offre {
+  id            Int         @id @default(autoincrement())
+  statut        OffreStatut
+  publicationId Int         @unique
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  produits      Produit[]
+
+  @@map("offres")
+}
+
+enum OffreStatut {
+  VENDU
+  NON_VENDU
+}
+
+model Produit {
+  id           Int         @id @default(autoincrement())
+  libelle      String
+  prixUnitaire Float
+  quantite     Int
+  uniteMesure  UniteMesure
+
+  offreId     Int
+  offre       Offre     @relation(fields: [offreId], references: [id], onDelete: Cascade)
+  categorieId Int
+  categorie   Categorie @relation(fields: [categorieId], references: [id])
+
+  @@map("produits")
+}
+
+enum UniteMesure {
+  PIECE
+  TONNE
+  KILOGRAMME
+  LITRE
+  KILOMETRE
+  HECTARE
+}
+
+model Categorie {
+  id        Int      @id @default(autoincrement())
+  nom       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  produits Produit[]
+
+  @@map("categories")
+}
+
+model PublicationImage {
+  id            Int         @id @default(autoincrement())
+  url           String
+  publicationId Int
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@map("publication_images")
 }
