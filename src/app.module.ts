@@ -5,6 +5,9 @@ import { UtilisateursService } from './utilisateurs/utilisateurs.service';
 import { UtilisateursController } from './utilisateurs/utilisateurs.controller';
 import { UtilisateursModule } from './utilisateurs/utilisateurs.module';
 import { ConfigModule } from '@nestjs/config';
+import { PublicationModule } from './publication/publication.module';
+import { UploadController } from './upload/upload.controller';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -14,8 +17,10 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    PublicationModule,
+    UploadModule,
   ],
-  controllers: [UtilisateursController],
+  controllers: [UtilisateursController, UploadController],
   providers: [UtilisateursService],
 })
 export class AppModule {}

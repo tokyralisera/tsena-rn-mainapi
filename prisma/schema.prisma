@@ -82,7 +82,7 @@ enum PublicationType {
 
 model Offre {
   id            Int         @id @default(autoincrement())
-  statut        OffreStatut
+  statut        OffreStatut @default(NON_VENDU)
   publicationId Int         @unique
   publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
   produits      Produit[]
