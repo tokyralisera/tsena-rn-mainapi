@@ -14,7 +14,7 @@ import * as streamifier from 'streamifier';
 export class UploadService {
   uploadImage(
     file: Express.Multer.File,
-    folder: string = 'publications',
+    folder: string = 'RoadMarket/autres',
   ): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
       //Validation du type de fichier
