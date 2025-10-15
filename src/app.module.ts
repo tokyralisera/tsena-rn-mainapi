@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PublicationModule } from './publication/publication.module';
 import { UploadController } from './upload/upload.controller';
 import { UploadModule } from './upload/upload.module';
+import { CategorieModule } from './categorie/categorie.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UploadModule } from './upload/upload.module';
     }),
     PublicationModule,
     UploadModule,
+    CategorieModule,
   ],
   controllers: [UtilisateursController, UploadController],
   providers: [UtilisateursService],
