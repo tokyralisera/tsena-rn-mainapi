@@ -8,7 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  // Configuration CORS dynamique
+  //? Configuration CORS dynamique
   app.enableCors({
     origin: configService.get('CORS_ORIGINS', 'http://localhost:4200').split(','),
     methods: configService.get('CORS_METHODS', 'GET,POST,PUT,DELETE,PATCH,OPTIONS').split(','),
@@ -23,7 +23,7 @@ async function bootstrap() {
     transform: true
   }));
 
-   // Configuration Swagger
+   //? Configuration Swagger
   const config = new DocumentBuilder()
     .setTitle('RoadMarket API')
     .setDescription('API de la plateforme RoadMarket - Gestion des publications d\'offres, demandes, logistique et informations')
@@ -32,6 +32,7 @@ async function bootstrap() {
     .addTag('Upload', 'Endpoints pour l\'upload d\'images sur Cloudinary')
     .addTag('Publications - Offres', 'Gestion des publications d\'offres')
     .addTag('Categories', 'Gestion des catégories de produits')
+    .addTag('Pays', 'Gestion des pays')
     .addBearerAuth(
       {
         type: 'http',

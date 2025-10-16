@@ -63,6 +63,8 @@ model Publication {
   auteur   Utilisateur        @relation(fields: [auteurId], references: [id], onDelete: Cascade)
   offre    Offre?
   images   PublicationImage[]
+  villeId  Int?
+  ville    Ville?              @relation(fields: [villeId], references: [id])
 
   @@map("publications")
 }
@@ -137,4 +139,29 @@ model PublicationImage {
   publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
 
   @@map("publication_images")
+}
+
+model Pays {
+  id        Int      @id @default(autoincrement())
+  nom       String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  villes    Ville[]
+
+  @@map("pays")
+}
+
+model Ville {
+  id           Int           @id @default(autoincrement())
+  nom          String
+  codePostal   String?
+  paysId       Int
+  pays         Pays          @relation(fields: [paysId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  publications Publication[]
+
+  @@unique([nom, paysId])
+  @@map("villes")
 }

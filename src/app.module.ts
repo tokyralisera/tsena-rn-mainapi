@@ -9,6 +9,7 @@ import { PublicationModule } from './publication/publication.module';
 import { UploadController } from './upload/upload.controller';
 import { UploadModule } from './upload/upload.module';
 import { CategorieModule } from './categorie/categorie.module';
+import { PaysModule } from './pays/pays.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CategorieModule } from './categorie/categorie.module';
     PublicationModule,
     UploadModule,
     CategorieModule,
+    PaysModule,
   ],
   controllers: [UtilisateursController, UploadController],
   providers: [UtilisateursService],
