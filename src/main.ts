@@ -33,6 +33,7 @@ async function bootstrap() {
     .addTag('Publications - Offres', 'Gestion des publications d\'offres')
     .addTag('Categories', 'Gestion des catégories de produits')
     .addTag('Pays', 'Gestion des pays')
+    .addTag('Villes', 'Gestion des villes')
     .addBearerAuth(
       {
         type: 'http',

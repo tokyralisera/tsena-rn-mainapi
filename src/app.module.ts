@@ -10,6 +10,7 @@ import { UploadController } from './upload/upload.controller';
 import { UploadModule } from './upload/upload.module';
 import { CategorieModule } from './categorie/categorie.module';
 import { PaysModule } from './pays/pays.module';
+import { VilleModule } from './ville/ville.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { PaysModule } from './pays/pays.module';
     UploadModule,
     CategorieModule,
     PaysModule,
+    VilleModule,
   ],
   controllers: [UtilisateursController, UploadController],
   providers: [UtilisateursService],
