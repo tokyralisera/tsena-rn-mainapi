@@ -39,6 +39,11 @@ export class PublicationOffreService {
       },
     },
     images: true,
+    ville: {
+      include:{
+        pays: true,
+      }
+    }
   };
 
   async create(
@@ -46,7 +51,7 @@ export class PublicationOffreService {
     files: Express.Multer.File[],
     auteurId: number,
   ) {
-    //Validation au moins 1 image
+    //? Validation au moins 1 image
     if (!files || files.length === 0) {
       throw new BadRequestException(
         'Au moins 1 image obligatoire pour creer une offre',
@@ -58,18 +63,26 @@ export class PublicationOffreService {
     }
 
     try {
-      //Upload des images vers Cloundinary
+      //? Verification que la ville existe
+      const ville = await this.prisma.ville.findUnique({
+        where: {id: dto.villeId}
+      })
+
+      if(!ville){ throw new BadRequestException("La ville specifiee n\'existe pas")}
+
+      //? Upload des images vers Cloundinary
       const uploadResult = await this.uploadService.uploadMultipleImage(
         files,
         this.OFFRES_FOLDER,
       );
 
-      //Creation de la publication
+      //? Creation de la publication
       const publication = await this.prisma.publication.create({
         data: {
           titre: dto.titre,
           description: dto.description,
           auteurId,
+          villeId: dto.villeId,
           offre: {
             create: {
               statut: OffreStatut.NON_VENDU,
@@ -95,6 +108,7 @@ export class PublicationOffreService {
         data: publication,
       };
     } catch (error) {
+      //! Nettoyage Cloudinary en cas d'erreur
       if (error.data?.files) {
         const publicIds = error.data.files.map((file) => file.publicId);
         await this.uploadService.deleteMultipleImage(publicIds).catch(() => {});
@@ -304,6 +318,17 @@ export class PublicationOffreService {
         );
       }
 
+          //? Vérifier la ville si changement
+    if (dto.villeId) {
+      const ville = await this.prisma.ville.findUnique({
+        where: { id: dto.villeId },
+      });
+
+      if (!ville) {
+        throw new BadRequestException('La ville spécifiée n\'existe pas');
+      }
+    }
+
       const updateData: any = {
         statut: PublicationStatut.EN_ATTENTE,
       };
@@ -315,6 +340,10 @@ export class PublicationOffreService {
       if (dto.description !== undefined) {
         updateData.description = dto.description;
       }
+
+          if (dto.villeId !== undefined) {
+      updateData.villeId = dto.villeId;
+    }
 
       // Mise à jour des produits si fournis
       if (dto.produits) {
@@ -628,6 +657,8 @@ export class PublicationOffreService {
     statut?: PublicationStatut;
     offreStatut?: string;
     categorieId?: number;
+      villeId?: number; 
+  paysId?: number; 
     search?: string;
     auteurId?: number;
     page?: number;
@@ -640,6 +671,8 @@ export class PublicationOffreService {
         statut,
         offreStatut,
         categorieId,
+              villeId,
+      paysId, 
         search,
         auteurId,
         page = 1,
@@ -650,12 +683,12 @@ export class PublicationOffreService {
 
       const skip = (page - 1) * limit;
 
-      // Construction dynamique des conditions WHERE
+      //? Construction dynamique des conditions WHERE
       const where: any = {
         type: 'OFFRE',
       };
 
-      // Filtre par statut de publication
+      //? Filtre par statut de publication
       if (statut) {
         where.statut = statut;
       } else {
@@ -663,14 +696,14 @@ export class PublicationOffreService {
         where.statut = PublicationStatut.VALIDE;
       }
 
-      // Filtre par statut d'offre
+      //? Filtre par statut d'offre
       if (offreStatut) {
         where.offre = {
           statut: offreStatut,
         };
       }
 
-      // Filtre par catégorie de produit
+      //? Filtre par catégorie de produit
       if (categorieId) {
         where.offre = {
           ...where.offre,
@@ -682,12 +715,24 @@ export class PublicationOffreService {
         };
       }
 
-      // Filtre par auteur
+          //? Filtre par ville
+    if (villeId) {
+      where.villeId = villeId;
+    }
+
+    //? Filtre par pays
+    if (paysId) {
+      where.ville = {
+        paysId: paysId,
+      };
+    }
+
+      //? Filtre par auteur
       if (auteurId) {
         where.auteurId = auteurId;
       }
 
-      // Recherche textuelle dans titre et description
+      //? Recherche textuelle dans titre et description
       if (search) {
         where.OR = [
           {
@@ -705,11 +750,11 @@ export class PublicationOffreService {
         ];
       }
 
-      // Construction de l'ordre de tri
+      //? Construction de l'ordre de tri
       const orderBy: any = {};
       orderBy[sortBy] = sortOrder;
 
-      // Exécution des requêtes en parallèle
+      //? Exécution des requêtes en parallèle
       const [publications, total] = await Promise.all([
         this.prisma.publication.findMany({
           where,
@@ -735,6 +780,8 @@ export class PublicationOffreService {
             statut: statut || PublicationStatut.VALIDE,
             offreStatut,
             categorieId,
+            villeId,
+            paysId,
             search,
             auteurId,
             sortBy,

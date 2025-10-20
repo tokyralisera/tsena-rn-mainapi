@@ -63,8 +63,8 @@ model Publication {
   auteur   Utilisateur        @relation(fields: [auteurId], references: [id], onDelete: Cascade)
   offre    Offre?
   images   PublicationImage[]
-  villeId  Int?
-  ville    Ville?              @relation(fields: [villeId], references: [id])
+  villeId  Int
+  ville    Ville             @relation(fields: [villeId], references: [id])
 
   @@map("publications")
 }

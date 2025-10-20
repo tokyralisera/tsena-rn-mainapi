@@ -15,7 +15,7 @@ import { PaysService } from './pays.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { Role } from 'src/types/enums';
+import { Role } from 'src/common/types/enums';
 import { CreatePaysDto } from './dto/create-pays.dto';
 import { UpdatePaysDto } from './dto/update-pays.dto';
 

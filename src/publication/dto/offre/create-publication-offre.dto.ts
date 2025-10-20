@@ -2,8 +2,10 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsInt,
   IsNotEmpty,
   IsOptional,
+  IsPositive,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -17,6 +19,11 @@ export class CreatePublicationOffreDto {
   @IsString()
   @IsNotEmpty({ message: 'La description est requise' })
   description: string;
+
+  @IsInt()
+  @IsPositive({ message: "L'ID de la ville doit être positif" })
+  @Type(() => Number)
+  villeId: number;
 
   @IsArray()
   @ValidateNested({ each: true })

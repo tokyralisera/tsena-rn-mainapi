@@ -23,11 +23,12 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CreatePublicationOffreDto } from '../dto/offre/create-publication-offre.dto';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { Role } from 'src/types/enums';
+import { Role } from 'src/common/types/enums';
 import { FilterPublicationOffreDto } from '../dto/offre/filter-publication-offre.dto';
 import { PublicationStatut } from '@prisma/client';
 import { UpdatePublicationOffreDto } from '../dto/offre/update-publication-offre.dto';
 import { UpdateOffreStatutDto } from '../dto/offre/update-offre-statut.dto';
+import { ParseFormDataInterceptor } from 'src/common/interceptor/parse-form-data.interceptor';
 
 @Controller('publications/offres')
 export class PublicationOffreController {
@@ -38,6 +39,7 @@ export class PublicationOffreController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(ParseFormDataInterceptor)
   @UseInterceptors(FilesInterceptor('files', 5))
   async create(
     @Body() dto: CreatePublicationOffreDto,
@@ -50,10 +52,13 @@ export class PublicationOffreController {
   @Get()
   @HttpCode(HttpStatus.OK)
   async findAllPublic(
-    @Query('page', ParseIntPipe) page: number = 1,
-    @Query('limit', ParseIntPipe) limit: number = 10,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
   ) {
-    return this.publicationOffreService.findAllPublic(page, limit);
+    return this.publicationOffreService.findAllPublic(
+      page ? parseInt(page.toString(), 10) : 1,
+      limit ? parseInt(limit.toString(), 10) : 10,
+    );
   }
 
   @Get('search')
@@ -67,11 +72,15 @@ export class PublicationOffreController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   async findAllForAdmin(
-    @Query('page', ParseIntPipe) page: number = 1,
-    @Query('limit', ParseIntPipe) limit: number = 10,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
     @Query('statut') statut?: PublicationStatut,
   ) {
-    return this.publicationOffreService.findAllForAdmin(page, limit, statut);
+    return this.publicationOffreService.findAllForAdmin(
+      page ? parseInt(page.toString(), 10) : 1,
+      limit ? parseInt(limit.toString(), 10) : 10,
+      statut,
+    );
   }
 
   @Get('statistics')
@@ -103,9 +112,38 @@ export class PublicationOffreController {
     return this.publicationOffreService.findOne(id, userId, userRole);
   }
 
+  @Get('ville/:villeId')
+  @HttpCode(HttpStatus.OK)
+  async findByVille(
+    @Param('villeId', ParseIntPipe) villeId: number,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.publicationOffreService.findAllWithFilters({
+      villeId,
+      page: page ? parseInt(page.toString(), 10) : 1,
+      limit: limit ? parseInt(limit.toString(), 10) : 10,
+    });
+  }
+
+  @Get('pays/:paysId')
+  @HttpCode(HttpStatus.OK)
+  async findByPays(
+    @Param('paysId', ParseIntPipe) paysId: number,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.publicationOffreService.findAllWithFilters({
+      paysId,
+      page: page ? parseInt(page.toString(), 10) : 1,
+      limit: limit ? parseInt(limit.toString(), 10) : 10,
+    });
+  }
+
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(ParseFormDataInterceptor)
   @UseInterceptors(FilesInterceptor('files', 5))
   async update(
     @Param('id', ParseIntPipe) id: number,

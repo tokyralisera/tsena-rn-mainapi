@@ -1,8 +1,10 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsInt,
   IsNotEmpty,
   IsOptional,
+  IsPositive,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -19,6 +21,12 @@ export class UpdatePublicationOffreDto {
   @IsString()
   @IsNotEmpty({ message: 'La description ne peut pas être vide' })
   description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive({ message: "L'ID de la ville doit être positif" })
+  @Type(() => Number)
+  villeId?: number;
 
   @IsOptional()
   @IsArray()
