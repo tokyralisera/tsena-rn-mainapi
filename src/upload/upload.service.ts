@@ -12,7 +12,7 @@ import * as streamifier from 'streamifier';
 
 @Injectable()
 export class UploadService {
-  uploadImage(
+  async uploadImage(
     file: Express.Multer.File,
     folder: string = 'RoadMarket/autres',
   ): Promise<UploadApiResponse> {

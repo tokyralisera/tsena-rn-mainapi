@@ -5,6 +5,7 @@ import { CreatePublicationOffreDto } from '../dto/offre/create-publication-offre
 import {
   BadRequestException,
   ForbiddenException,
+  Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { OffreStatut, PublicationStatut, Role } from '@prisma/client';
 import { UpdatePublicationStatutDto } from '../dto/offre/update-publication-statut.dto';
 import { UpdateOffreStatutDto } from '../dto/offre/update-offre-statut.dto';
 
+@Injectable()
 export class PublicationOffreService {
   private readonly OFFRES_FOLDER = 'RoadMarket/publications/offres';
 
@@ -65,7 +67,7 @@ export class PublicationOffreService {
     try {
       //? Verification que la ville existe
       const ville = await this.prisma.ville.findUnique({
-        where: {id: dto.villeId}
+        where: { id: dto.villeId }
       })
 
       if(!ville){ throw new BadRequestException("La ville specifiee n\'existe pas")}
@@ -108,6 +110,7 @@ export class PublicationOffreService {
         data: publication,
       };
     } catch (error) {
+    console.log('Prisma error:',error);
       //! Nettoyage Cloudinary en cas d'erreur
       if (error.data?.files) {
         const publicIds = error.data.files.map((file) => file.publicId);

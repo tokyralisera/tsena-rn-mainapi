@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateCategorieDto } from 'src/publication/create-categorie.dto';
+import { CreateCategorieDto } from './dto/create-categorie.dto';
 import { UpdateCategorieDto } from './dto/update-categorie.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
