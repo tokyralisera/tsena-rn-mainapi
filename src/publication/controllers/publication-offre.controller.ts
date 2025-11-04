@@ -96,10 +96,14 @@ export class PublicationOffreController {
   @UseGuards(JwtAuthGuard)
   async findMyPublications(
     @GetUser('id') userId: number,
-    @Query('page', ParseIntPipe) page: number = 1,
-    @Query('limit', ParseIntPipe) limit: number = 10,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.publicationOffreService.findMyPublications(userId, page, limit);
+    return this.publicationOffreService.findMyPublications(
+      userId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10,
+    );
   }
 
   @Get(':id')

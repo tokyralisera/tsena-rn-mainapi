@@ -1,7 +1,7 @@
-import { UpdatePublicationOffreDto } from './../dto/offre/update-publication-offre.dto';
+import { UpdatePublicationDemandeDto } from './../dto/demande/update-publication-demande.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UploadService } from 'src/upload/upload.service';
-import { CreatePublicationOffreDto } from '../dto/offre/create-publication-offre.dto';
+import { CreatePublicationDemandeDto } from '../dto/demande/create-publication-demande.dto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -9,18 +9,18 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { OffreStatut, PublicationStatut, Role } from '@prisma/client';
+import { PublicationStatut, Role, StatutDemande } from '@prisma/client';
 import { UpdatePublicationStatutDto } from '../dto/offre/update-publication-statut.dto';
-import { UpdateOffreStatutDto } from '../dto/offre/update-offre-statut.dto';
+import { UpdateDemandeStatutDto } from '../dto/demande/update-demande-statut.dto';
 
 @Injectable()
-export class PublicationOffreService {
-  private readonly OFFRES_FOLDER = 'RoadMarket/publications/offres';
+export class PublicationDemandeService {
+  private readonly DEMANDES_FOLDER = 'RoadMarket/publications/demandes';
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploadService: UploadService,
-  ) {}
+  ) { }
 
   private readonly includeOptions = {
     auteur: {
@@ -31,7 +31,7 @@ export class PublicationOffreService {
         telephone: true,
       },
     },
-    offre: {
+    demande: {
       include: {
         produits: {
           include: {
@@ -48,53 +48,77 @@ export class PublicationOffreService {
     },
   };
 
+  /**
+   * Créer une publication de demande
+   */
   async create(
-    dto: CreatePublicationOffreDto,
-    files: Express.Multer.File[],
+    dto: CreatePublicationDemandeDto,
+    files: Express.Multer.File[] | undefined,
     auteurId: number,
   ) {
-    //? Validation au moins 1 image
-    if (!files || files.length === 0) {
+    //? Validation max 5 images (optionnelles)
+    if (files && files.length > 5) {
+      throw new BadRequestException('Au maximum 5 images pour une demande');
+    }
+
+    //? Validation budgetMax >= budgetMin
+    if (
+      dto.budgetMin !== undefined &&
+      dto.budgetMax !== undefined &&
+      dto.budgetMax < dto.budgetMin
+    ) {
       throw new BadRequestException(
-        'Au moins 1 image obligatoire pour creer une offre',
+        'Le budget maximum doit être supérieur ou égal au budget minimum',
       );
     }
 
-    if (files.length > 5) {
-      throw new BadRequestException('Au maximum 5 images pour une offre');
+    //? Validation deadline dans le futur
+    if (dto.deadline) {
+      const deadlineDate = new Date(dto.deadline);
+      if (deadlineDate <= new Date()) {
+        throw new BadRequestException(
+          'La date limite doit être dans le futur',
+        );
+      }
     }
 
     try {
-      //? Verification que la ville existe
+      //? Vérification que la ville existe
       const ville = await this.prisma.ville.findUnique({
         where: { id: dto.villeId },
       });
 
       if (!ville) {
-        throw new BadRequestException("La ville specifiee n\'existe pas");
+        throw new BadRequestException("La ville spécifiée n'existe pas");
       }
 
-      //? Upload des images vers Cloundinary
-      const uploadResult = await this.uploadService.uploadMultipleImage(
-        files,
-        this.OFFRES_FOLDER,
-      );
+      //? Upload des images vers Cloudinary (optionnel)
+      let imageUrls: string[] = [];
+      if (files && files.length > 0) {
+        const uploadResult = await this.uploadService.uploadMultipleImage(
+          files,
+          this.DEMANDES_FOLDER,
+        );
+        imageUrls = uploadResult.data.urls;
+      }
 
-      //? Creation de la publication
+      //? Création de la publication
       const publication = await this.prisma.publication.create({
         data: {
           titre: dto.titre,
           description: dto.description,
-          type: 'OFFRE',
+          type: 'DEMANDE',
           auteurId,
           villeId: dto.villeId,
-          offre: {
+          demande: {
             create: {
-              statut: OffreStatut.NON_VENDU,
+              statutDemande: StatutDemande.NON_TROUVEE,
+              deadline: dto.deadline ? new Date(dto.deadline) : null,
+              budgetMin: dto.budgetMin,
+              budgetMax: dto.budgetMax,
               produits: {
                 create: dto.produits.map((produit) => ({
-                  libelle: produit.libelle,
-                  prixUnitaire: produit.prixUnitaire,
+                  nom: produit.nom,
                   quantite: produit.quantite,
                   uniteMesure: produit.uniteMesure,
                   categorieId: produit.categorieId,
@@ -102,29 +126,45 @@ export class PublicationOffreService {
               },
             },
           },
-          images: { create: uploadResult.data.urls.map((url) => ({ url })) },
+          images:
+            imageUrls.length > 0
+              ? { create: imageUrls.map((url) => ({ url })) }
+              : undefined,
         },
         include: this.includeOptions,
       });
+
       return {
         success: true,
         statusCode: 201,
-        message: 'Publication cree avec succes, en attente de validation',
+        message: 'Demande créée avec succès, en attente de validation',
         data: publication,
       };
     } catch (error) {
       console.log('Prisma error:', error);
+
       //! Nettoyage Cloudinary en cas d'erreur
-      if (error.data?.files) {
-        const publicIds = error.data.files.map((file) => file.publicId);
-        await this.uploadService.deleteMultipleImage(publicIds).catch(() => {});
+      if (files && files.length > 0) {
+        // Tentative de nettoyage silencieuse
+        const publicIds = files.map(
+          (file) => `${this.DEMANDES_FOLDER}/${file.filename}`,
+        );
+        await this.uploadService.deleteMultipleImage(publicIds).catch(() => { });
       }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException(
-        'Erreur lors de la creation de la publication',
+        'Erreur lors de la création de la demande',
       );
     }
   }
 
+  /**
+   * Récupérer toutes les demandes validées (public)
+   */
   async findAllPublic(page: number = 1, limit: number = 10) {
     try {
       const skip = (page - 1) * limit;
@@ -133,7 +173,7 @@ export class PublicationOffreService {
         this.prisma.publication.findMany({
           where: {
             statut: PublicationStatut.VALIDE,
-            type: 'OFFRE',
+            type: 'DEMANDE',
           },
           skip,
           take: limit,
@@ -143,29 +183,33 @@ export class PublicationOffreService {
         this.prisma.publication.count({
           where: {
             statut: PublicationStatut.VALIDE,
-            type: 'OFFRE',
+            type: 'DEMANDE',
           },
         }),
       ]);
+
       return {
         success: true,
         statusCode: 200,
-        message: 'Publications recuperes avec succes',
+        message: 'Demandes récupérées avec succès',
         data: publications,
         meta: {
           total,
           page,
           limit,
-          totalPage: Math.ceil(total / limit),
+          totalPages: Math.ceil(total / limit),
         },
       };
     } catch {
       throw new InternalServerErrorException(
-        'Erreur lors de la recuperation des publications',
+        'Erreur lors de la récupération des demandes',
       );
     }
   }
 
+  /**
+   * Récupérer toutes les demandes pour admin (avec filtres)
+   */
   async findAllForAdmin(
     page: number = 1,
     limit: number = 10,
@@ -175,7 +219,7 @@ export class PublicationOffreService {
       const skip = (page - 1) * limit;
 
       const where: any = {
-        type: 'OFFRE',
+        type: 'DEMANDE',
       };
 
       if (statut) {
@@ -198,7 +242,7 @@ export class PublicationOffreService {
       return {
         success: true,
         statusCode: 200,
-        message: 'Publications recuperes avec succes',
+        message: 'Demandes récupérées avec succès',
         data: publications,
         meta: {
           total,
@@ -209,11 +253,14 @@ export class PublicationOffreService {
       };
     } catch {
       throw new InternalServerErrorException(
-        'Erreur lors de la recuperation des publications',
+        'Erreur lors de la récupération des demandes',
       );
     }
   }
 
+  /**
+   * Récupérer mes demandes (utilisateur connecté)
+   */
   async findMyPublications(userId: number, page: number = 1, limit = 10) {
     try {
       const skip = (page - 1) * limit;
@@ -222,7 +269,7 @@ export class PublicationOffreService {
         this.prisma.publication.findMany({
           where: {
             auteurId: userId,
-            type: 'OFFRE',
+            type: 'DEMANDE',
           },
           skip,
           take: limit,
@@ -232,14 +279,15 @@ export class PublicationOffreService {
         this.prisma.publication.count({
           where: {
             auteurId: userId,
-            type: 'OFFRE',
+            type: 'DEMANDE',
           },
         }),
       ]);
+
       return {
         success: true,
         statusCode: 200,
-        message: 'Vos publications recuperees avec succes',
+        message: 'Vos demandes récupérées avec succès',
         data: publications,
         meta: {
           total,
@@ -250,11 +298,14 @@ export class PublicationOffreService {
       };
     } catch {
       throw new InternalServerErrorException(
-        'Erreur lors de la recuperation de vos publications',
+        'Erreur lors de la récupération de vos demandes',
       );
     }
   }
 
+  /**
+   * Récupérer une demande par ID
+   */
   async findOne(id: number, userId?: number, userRole?: Role) {
     try {
       const publication = await this.prisma.publication.findUnique({
@@ -263,40 +314,50 @@ export class PublicationOffreService {
       });
 
       if (!publication) {
-        throw new NotFoundException('Publication non trouvee');
+        throw new NotFoundException('Demande non trouvée');
       }
 
+      //? Vérifier que c'est bien une demande
+      if (publication.type !== 'DEMANDE') {
+        throw new BadRequestException('Cette publication n\'est pas une demande');
+      }
+
+      //? Si la demande n'est pas validée, seul l'auteur ou admin peut la voir
       if (publication.statut !== PublicationStatut.VALIDE) {
         const isAuthor = userId && publication.auteurId === userId;
         const isAdmin = userRole === Role.ADMIN || userRole === Role.SUPERADMIN;
 
         if (!isAuthor && !isAdmin) {
-          throw new ForbiddenException('Acces refuse a cette publication');
+          throw new ForbiddenException('Accès refusé à cette demande');
         }
       }
 
       return {
-        sucess: true,
+        success: true,
         statusCode: 200,
-        message: 'Publication recuperee avec succes',
+        message: 'Demande récupérée avec succès',
         data: publication,
       };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
-        error instanceof ForbiddenException
+        error instanceof ForbiddenException ||
+        error instanceof BadRequestException
       ) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Erreur lors de la recuperation de la publication',
+        'Erreur lors de la récupération de la demande',
       );
     }
   }
 
+  /**
+   * Modifier une demande
+   */
   async update(
     id: number,
-    dto: UpdatePublicationOffreDto,
+    dto: UpdatePublicationDemandeDto,
     files: Express.Multer.File[] | undefined,
     userId: number,
   ) {
@@ -304,7 +365,7 @@ export class PublicationOffreService {
       const publication = await this.prisma.publication.findUnique({
         where: { id },
         include: {
-          offre: {
+          demande: {
             include: {
               produits: true,
             },
@@ -314,14 +375,23 @@ export class PublicationOffreService {
       });
 
       if (!publication) {
-        throw new NotFoundException('Publication non trouvee');
+        throw new NotFoundException('Demande non trouvée');
       }
 
-      //Verification pour que seul l'auteur puisse modifier sa publication
+      if (publication.type !== 'DEMANDE') {
+        throw new BadRequestException('Cette publication n\'est pas une demande');
+      }
+
+      //? Vérification que seul l'auteur peut modifier
       if (publication.auteurId !== userId) {
         throw new ForbiddenException(
-          'Vous ne pouvez modifier que vos propres publications',
+          'Vous ne pouvez modifier que vos propres demandes',
         );
+      }
+
+      //? Validation max 5 images
+      if (files && files.length > 5) {
+        throw new BadRequestException('Maximum 5 images par demande');
       }
 
       //? Vérifier la ville si changement
@@ -335,9 +405,35 @@ export class PublicationOffreService {
         }
       }
 
+      //? Validation budgetMax >= budgetMin
+      const newBudgetMin = dto.budgetMin ?? publication.demande?.budgetMin;
+      const newBudgetMax = dto.budgetMax ?? publication.demande?.budgetMax;
+
+      if (
+        newBudgetMin !== undefined &&
+        newBudgetMin !== null &&
+        newBudgetMax !== undefined &&
+        newBudgetMax !== null &&
+        newBudgetMax < newBudgetMin
+      ) {
+        throw new BadRequestException(
+          'Le budget maximum doit être supérieur ou égal au budget minimum',
+        );
+      }
+
+      //? Validation deadline dans le futur
+      if (dto.deadline) {
+        const deadlineDate = new Date(dto.deadline);
+        if (deadlineDate <= new Date()) {
+          throw new BadRequestException(
+            'La date limite doit être dans le futur',
+          );
+        }
+      }
+
       const updateData: any = {
-        statut: PublicationStatut.EN_ATTENTE,
-        type: 'OFFRE',
+        statut: PublicationStatut.EN_ATTENTE, // Repasse en attente après modification
+        type: 'DEMANDE',
       };
 
       if (dto.titre !== undefined) {
@@ -352,38 +448,39 @@ export class PublicationOffreService {
         updateData.villeId = dto.villeId;
       }
 
-      // Mise à jour des produits si fournis
-      if (dto.produits) {
-        updateData.offre = {
-          update: {
+      //? Mise à jour de la demande et des produits
+      updateData.demande = {
+        update: {
+          ...(dto.deadline !== undefined && {
+            deadline: dto.deadline ? new Date(dto.deadline) : null,
+          }),
+          ...(dto.budgetMin !== undefined && { budgetMin: dto.budgetMin }),
+          ...(dto.budgetMax !== undefined && { budgetMax: dto.budgetMax }),
+          ...(dto.produits && {
             produits: {
               deleteMany: {}, // Suppression de tous les anciens produits
               create: dto.produits.map((produit) => ({
-                libelle: produit.libelle,
-                prixUnitaire: produit.prixUnitaire,
+                nom: produit.nom,
                 quantite: produit.quantite,
                 uniteMesure: produit.uniteMesure,
                 categorieId: produit.categorieId,
               })),
             },
-          },
-        };
-      }
+          }),
+        },
+      };
 
-      if (files && files.length > 5) {
-        throw new BadRequestException('Maximum 5 images par publication');
-      }
-
+      //? Gestion des images
       if (files && files.length > 0) {
         const uploadResult = await this.uploadService.uploadMultipleImage(
           files,
-          this.OFFRES_FOLDER,
+          this.DEMANDES_FOLDER,
         );
 
         const oldPublicIds = publication.images
           .map((img) => {
             const matches = img.url.match(
-              /RoadMarket\/publications\/offres\/[^.]+/,
+              /RoadMarket\/publications\/demandes\/[^.]+/,
             );
             return matches ? matches[0] : null;
           })
@@ -394,7 +491,7 @@ export class PublicationOffreService {
           create: uploadResult.data.urls.map((url) => ({ url })),
         };
 
-        //? Suppression des anciennes images sur Cloudinary
+        // Suppression des anciennes images sur Cloudinary
         if (oldPublicIds.length > 0) {
           this.uploadService
             .deleteMultipleImage(oldPublicIds)
@@ -407,7 +504,7 @@ export class PublicationOffreService {
         }
       }
 
-      const updatePublication = await this.prisma.publication.update({
+      const updatedPublication = await this.prisma.publication.update({
         where: { id },
         data: updateData,
         include: this.includeOptions,
@@ -416,9 +513,8 @@ export class PublicationOffreService {
       return {
         success: true,
         statusCode: 200,
-        message:
-          'Publication mise a jour avec succes, en attente de validation',
-        data: updatePublication,
+        message: 'Demande mise à jour avec succès, en attente de validation',
+        data: updatedPublication,
       };
     } catch (error) {
       if (
@@ -429,11 +525,14 @@ export class PublicationOffreService {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Erreur lors de la mise a jour de la publication',
+        'Erreur lors de la mise à jour de la demande',
       );
     }
   }
 
+  /**
+   * Modifier le statut de publication (admin)
+   */
   async updateStatut(id: number, dto: UpdatePublicationStatutDto) {
     try {
       const publication = await this.prisma.publication.findUnique({
@@ -441,7 +540,11 @@ export class PublicationOffreService {
       });
 
       if (!publication) {
-        throw new NotFoundException('Publication non trouvee');
+        throw new NotFoundException('Demande non trouvée');
+      }
+
+      if (publication.type !== 'DEMANDE') {
+        throw new BadRequestException('Cette publication n\'est pas une demande');
       }
 
       // Validation métier : éviter la re-validation
@@ -449,10 +552,10 @@ export class PublicationOffreService {
         publication.statut === PublicationStatut.VALIDE &&
         dto.statut === PublicationStatut.VALIDE
       ) {
-        throw new BadRequestException('Publication deja validee');
+        throw new BadRequestException('Demande déjà validée');
       }
 
-      const updatePublication = await this.prisma.publication.update({
+      const updatedPublication = await this.prisma.publication.update({
         where: { id },
         data: {
           statut: dto.statut,
@@ -462,13 +565,14 @@ export class PublicationOffreService {
 
       const message =
         dto.statut === PublicationStatut.VALIDE
-          ? 'Publication validee avec succes'
-          : 'Publication rejetee';
+          ? 'Demande validée avec succès'
+          : 'Demande rejetée';
+
       return {
         success: true,
         statusCode: 200,
         message,
-        data: updatePublication,
+        data: updatedPublication,
       };
     } catch (error) {
       if (
@@ -478,49 +582,59 @@ export class PublicationOffreService {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Erreur lors de la mise a jour du statut de la publication',
+        'Erreur lors de la mise à jour du statut de la demande',
       );
     }
   }
 
-  async updateOffreStatut(
+  /**
+   * Modifier le statut de la demande (TROUVEE/NON_TROUVEE/EXPIREE) - Utilisateur
+   */
+  async updateDemandeStatut(
     publicationId: number,
-    dto: UpdateOffreStatutDto,
+    dto: UpdateDemandeStatutDto,
     userId: number,
   ) {
     try {
       const publication = await this.prisma.publication.findUnique({
         where: { id: publicationId },
         include: {
-          offre: true,
+          demande: true,
         },
       });
 
       if (!publication) {
-        throw new NotFoundException('Publication non trouvee');
-      }
-      if (!publication.offre) {
-        throw new NotFoundException('Offre non trouvee pour cette publication');
+        throw new NotFoundException('Demande non trouvée');
       }
 
-      //Verification pour que seul l'auteur puisse modifier le statut de l'offre
+      if (publication.type !== 'DEMANDE') {
+        throw new BadRequestException('Cette publication n\'est pas une demande');
+      }
+
+      if (!publication.demande) {
+        throw new NotFoundException(
+          'Demande non trouvée pour cette publication',
+        );
+      }
+
+      //? Vérification que seul l'auteur peut modifier le statut
       if (publication.auteurId !== userId) {
         throw new ForbiddenException(
-          'Seul l auteur peut modifier le statut de son offre',
+          "Seul l'auteur peut modifier le statut de sa demande",
         );
       }
 
-      // Validation métier : la publication doit être validée
+      //? Validation métier : la publication doit être validée
       if (publication.statut !== PublicationStatut.VALIDE) {
         throw new BadRequestException(
-          "Le statut de l'offre ne peut être modifié que si la publication est validée",
+          'Le statut de la demande ne peut être modifié que si la publication est validée',
         );
       }
 
-      await this.prisma.offre.update({
-        where: { id: publication.offre.id },
+      await this.prisma.demande.update({
+        where: { id: publication.demande.id },
         data: {
-          statut: dto.statut,
+          statutDemande: dto.statut,
         },
       });
 
@@ -533,7 +647,7 @@ export class PublicationOffreService {
       return {
         success: true,
         statusCode: 200,
-        message: "Statut de l'offre mis à jour avec succès",
+        message: 'Statut de la demande mis à jour avec succès',
         data: updatedPublication,
       };
     } catch (error) {
@@ -545,11 +659,14 @@ export class PublicationOffreService {
         throw error;
       }
       throw new InternalServerErrorException(
-        "Erreur lors de la mise à jour du statut de l'offre",
+        'Erreur lors de la mise à jour du statut de la demande',
       );
     }
   }
 
+  /**
+   * Supprimer une demande
+   */
   async delete(id: number, userId: number, userRole: Role) {
     try {
       const publication = await this.prisma.publication.findUnique({
@@ -560,7 +677,11 @@ export class PublicationOffreService {
       });
 
       if (!publication) {
-        throw new NotFoundException('Publication non trouvee');
+        throw new NotFoundException('Demande non trouvée');
+      }
+
+      if (publication.type !== 'DEMANDE') {
+        throw new BadRequestException('Cette publication n\'est pas une demande');
       }
 
       const isOwner = publication.auteurId === userId;
@@ -568,7 +689,7 @@ export class PublicationOffreService {
 
       if (!isOwner && !isAdmin) {
         throw new ForbiddenException(
-          "Vous n'avez pas les droits pour supprimer cette publication",
+          "Vous n'avez pas les droits pour supprimer cette demande",
         );
       }
 
@@ -576,16 +697,16 @@ export class PublicationOffreService {
       const publicIds = publication.images
         .map((img) => {
           const matches = img.url.match(
-            /RoadMarket\/publications\/offres\/[^.]+/,
+            /RoadMarket\/publications\/demandes\/[^.]+/,
           );
           return matches ? matches[0] : null;
         })
         .filter((id) => id !== null);
 
-      //Suppression en base
+      // Suppression en base
       await this.prisma.publication.delete({ where: { id } });
 
-      //Suppresion des images sur Cloudinary
+      // Suppression des images sur Cloudinary
       if (publicIds.length > 0) {
         this.uploadService.deleteMultipleImage(publicIds).catch((error) => {
           console.error(
@@ -598,49 +719,63 @@ export class PublicationOffreService {
       return {
         success: true,
         statusCode: 200,
-        message: 'Publication supprimee avec succes',
+        message: 'Demande supprimée avec succès',
       };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
-        error instanceof ForbiddenException
+        error instanceof ForbiddenException ||
+        error instanceof BadRequestException
       ) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Erreur lors de la suppression de la publication',
+        'Erreur lors de la suppression de la demande',
       );
     }
   }
 
+  /**
+   * Statistiques des demandes (admin)
+   */
   async getStatistics() {
     try {
-      const [total, enAttente, valide, rejete, vendu, nonVendu] =
-        await Promise.all([
-          this.prisma.publication.count({
-            where: { type: 'OFFRE' },
-          }),
-          this.prisma.publication.count({
-            where: { type: 'OFFRE', statut: PublicationStatut.EN_ATTENTE },
-          }),
-          this.prisma.publication.count({
-            where: { type: 'OFFRE', statut: PublicationStatut.VALIDE },
-          }),
-          this.prisma.publication.count({
-            where: { type: 'OFFRE', statut: PublicationStatut.REJETE },
-          }),
-          this.prisma.offre.count({
-            where: { statut: 'VENDU' },
-          }),
-          this.prisma.offre.count({
-            where: { statut: 'NON_VENDU' },
-          }),
-        ]);
+      const [
+        total,
+        enAttente,
+        valide,
+        rejete,
+        trouvee,
+        nonTrouvee,
+        expiree,
+      ] = await Promise.all([
+        this.prisma.publication.count({
+          where: { type: 'DEMANDE' },
+        }),
+        this.prisma.publication.count({
+          where: { type: 'DEMANDE', statut: PublicationStatut.EN_ATTENTE },
+        }),
+        this.prisma.publication.count({
+          where: { type: 'DEMANDE', statut: PublicationStatut.VALIDE },
+        }),
+        this.prisma.publication.count({
+          where: { type: 'DEMANDE', statut: PublicationStatut.REJETE },
+        }),
+        this.prisma.demande.count({
+          where: { statutDemande: 'TROUVEE' },
+        }),
+        this.prisma.demande.count({
+          where: { statutDemande: 'NON_TROUVEE' },
+        }),
+        this.prisma.demande.count({
+          where: { statutDemande: 'EXPIREE' },
+        }),
+      ]);
 
       return {
         success: true,
         statusCode: 200,
-        message: 'Statistiques recuperees avec succes',
+        message: 'Statistiques récupérées avec succès',
         data: {
           totalPublications: total,
           publications: {
@@ -648,9 +783,10 @@ export class PublicationOffreService {
             valide,
             rejete,
           },
-          offres: {
-            vendu,
-            nonVendu,
+          demandes: {
+            trouvee,
+            nonTrouvee,
+            expiree,
           },
         },
       };
@@ -661,28 +797,35 @@ export class PublicationOffreService {
     }
   }
 
+  /**
+   * Récupérer les demandes avec filtres avancés
+   */
   async findAllWithFilters(filters: {
     statut?: PublicationStatut;
-    offreStatut?: string;
+    demandeStatut?: StatutDemande;
     categorieId?: number;
     villeId?: number;
     paysId?: number;
     search?: string;
     auteurId?: number;
+    budgetMin?: number;
+    budgetMax?: number;
     page?: number;
     limit?: number;
-    sortBy?: 'createdAt' | 'updatedAt' | 'titre';
+    sortBy?: 'createdAt' | 'updatedAt' | 'titre' | 'deadline';
     sortOrder?: 'asc' | 'desc';
   }) {
     try {
       const {
         statut,
-        offreStatut,
+        demandeStatut,
         categorieId,
         villeId,
         paysId,
         search,
         auteurId,
+        budgetMin,
+        budgetMax,
         page = 1,
         limit = 10,
         sortBy = 'createdAt',
@@ -693,28 +836,28 @@ export class PublicationOffreService {
 
       //? Construction dynamique des conditions WHERE
       const where: any = {
-        type: 'OFFRE',
+        type: 'DEMANDE',
       };
 
       //? Filtre par statut de publication
       if (statut) {
         where.statut = statut;
       } else {
-        // Par défaut, seules les publications validées sont visibles pour le public
+        // Par défaut, seules les demandes validées sont visibles
         where.statut = PublicationStatut.VALIDE;
       }
 
-      //? Filtre par statut d'offre
-      if (offreStatut) {
-        where.offre = {
-          statut: offreStatut,
+      //? Filtre par statut de demande
+      if (demandeStatut) {
+        where.demande = {
+          statutDemande: demandeStatut,
         };
       }
 
       //? Filtre par catégorie de produit
       if (categorieId) {
-        where.offre = {
-          ...where.offre,
+        where.demande = {
+          ...where.demande,
           produits: {
             some: {
               categorieId: categorieId,
@@ -740,6 +883,19 @@ export class PublicationOffreService {
         where.auteurId = auteurId;
       }
 
+      //? Filtre par budget
+      if (budgetMin !== undefined || budgetMax !== undefined) {
+        where.demande = {
+          ...where.demande,
+          ...(budgetMin !== undefined && {
+            budgetMax: { gte: budgetMin },
+          }),
+          ...(budgetMax !== undefined && {
+            budgetMin: { lte: budgetMax },
+          }),
+        };
+      }
+
       //? Recherche textuelle dans titre et description
       if (search) {
         where.OR = [
@@ -759,8 +915,16 @@ export class PublicationOffreService {
       }
 
       //? Construction de l'ordre de tri
-      const orderBy: any = {};
-      orderBy[sortBy] = sortOrder;
+      let orderBy: any = {};
+      if (sortBy === 'deadline') {
+        orderBy = {
+          demande: {
+            deadline: sortOrder,
+          },
+        };
+      } else {
+        orderBy[sortBy] = sortOrder;
+      }
 
       //? Exécution des requêtes en parallèle
       const [publications, total] = await Promise.all([
@@ -777,7 +941,7 @@ export class PublicationOffreService {
       return {
         success: true,
         statusCode: 200,
-        message: 'Publications récupérées avec succès',
+        message: 'Demandes récupérées avec succès',
         data: publications,
         meta: {
           total,
@@ -786,12 +950,14 @@ export class PublicationOffreService {
           totalPages: Math.ceil(total / limit),
           filters: {
             statut: statut || PublicationStatut.VALIDE,
-            offreStatut,
+            demandeStatut,
             categorieId,
             villeId,
             paysId,
             search,
             auteurId,
+            budgetMin,
+            budgetMax,
             sortBy,
             sortOrder,
           },
@@ -799,7 +965,7 @@ export class PublicationOffreService {
       };
     } catch {
       throw new InternalServerErrorException(
-        'Erreur lors de la récupération des publications avec filtres',
+        'Erreur lors de la récupération des demandes avec filtres',
       );
     }
   }

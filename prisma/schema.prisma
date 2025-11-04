@@ -54,7 +54,7 @@ model Publication {
   id          Int               @id @default(autoincrement())
   titre       String
   description String
-  type        PublicationType   @default(OFFRE)
+  type        PublicationType
   statut      PublicationStatut @default(EN_ATTENTE)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -62,9 +62,10 @@ model Publication {
   auteurId Int
   auteur   Utilisateur        @relation(fields: [auteurId], references: [id], onDelete: Cascade)
   offre    Offre?
+  demande  Demande?
   images   PublicationImage[]
   villeId  Int
-  ville    Ville             @relation(fields: [villeId], references: [id])
+  ville    Ville              @relation(fields: [villeId], references: [id])
 
   @@map("publications")
 }
@@ -77,7 +78,7 @@ enum PublicationStatut {
 
 enum PublicationType {
   OFFRE
-  // DEMANDE 
+  DEMANDE
   // INFORMATIONS 
   // LOGISTIQUE
 }
@@ -127,7 +128,8 @@ model Categorie {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  produits Produit[]
+  produits        Produit[]
+  demandeProduits DemandeProduit[]
 
   @@map("categories")
 }
@@ -164,4 +166,41 @@ model Ville {
 
   @@unique([nom, paysId])
   @@map("villes")
+}
+
+model Demande {
+  id            Int           @id @default(autoincrement())
+  statutDemande StatutDemande @default(NON_TROUVEE)
+  deadline      DateTime?
+  budgetMin     Float?
+  budgetMax     Float?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  publicationId Int         @unique
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  produits DemandeProduit[]
+
+  @@map("demandes")
+}
+
+model DemandeProduit {
+  id          Int          @id @default(autoincrement())
+  nom         String
+  quantite    Int? // Quantité souhaitée (optionnel)
+  uniteMesure UniteMesure?
+  demandeId   Int
+  demande     Demande      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+
+  categorieId Int
+  categorie   Categorie @relation(fields: [categorieId], references: [id])
+
+  @@map("demande_produits")
+}
+
+enum StatutDemande {
+  TROUVEE
+  NON_TROUVEE
+  EXPIREE
 }

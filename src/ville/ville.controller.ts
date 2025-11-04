@@ -34,9 +34,10 @@ export class VilleController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async findAll(@Query('paysId', ParseIntPipe) paysId?: number) {
-    return this.villeService.findAll(paysId);
-  }
+async findAll(@Query('paysId') paysId?: string) {
+  const parsedPaysId = paysId ? parseInt(paysId, 10) : undefined;
+  return this.villeService.findAll(parsedPaysId);
+}
 
   @Get('pays/:paysId')
   @HttpCode(HttpStatus.OK)

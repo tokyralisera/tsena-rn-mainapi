@@ -31,6 +31,7 @@ async function bootstrap() {
     .addTag('Auth', 'Endpoints d\'authentification et gestion utilisateurs')
     .addTag('Upload', 'Endpoints pour l\'upload d\'images sur Cloudinary')
     .addTag('Publications - Offres', 'Gestion des publications d\'offres')
+    .addTag('Publications - Demandes', 'Gestion des publications de demandes')
     .addTag('Categories', 'Gestion des catégories de produits')
     .addTag('Pays', 'Gestion des pays')
     .addTag('Villes', 'Gestion des villes')
