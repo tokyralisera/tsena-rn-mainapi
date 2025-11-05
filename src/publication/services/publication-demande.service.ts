@@ -847,25 +847,6 @@ export class PublicationDemandeService {
         where.statut = PublicationStatut.VALIDE;
       }
 
-      //? Filtre par statut de demande
-      if (demandeStatut) {
-        where.demande = {
-          statutDemande: demandeStatut,
-        };
-      }
-
-      //? Filtre par catégorie de produit
-      if (categorieId) {
-        where.demande = {
-          ...where.demande,
-          produits: {
-            some: {
-              categorieId: categorieId,
-            },
-          },
-        };
-      }
-
       //? Filtre par ville
       if (villeId) {
         where.villeId = villeId;
@@ -883,17 +864,35 @@ export class PublicationDemandeService {
         where.auteurId = auteurId;
       }
 
-      //? Filtre par budget
-      if (budgetMin !== undefined || budgetMax !== undefined) {
-        where.demande = {
-          ...where.demande,
-          ...(budgetMin !== undefined && {
-            budgetMax: { gte: budgetMin },
-          }),
-          ...(budgetMax !== undefined && {
-            budgetMin: { lte: budgetMax },
-          }),
+      //? Construction des filtres sur la demande
+      const demandeFilters: any = {};
+
+      // Filtre par statut de demande
+      if (demandeStatut) {
+        demandeFilters.statutDemande = demandeStatut;
+      }
+
+      // Filtre par catégorie de produit
+      if (categorieId) {
+        demandeFilters.produits = {
+          some: {
+            categorieId: categorieId,
+          },
         };
+      }
+
+      // Filtre par budget
+      if (budgetMin !== undefined) {
+        demandeFilters.budgetMax = { gte: budgetMin };
+      }
+
+      if (budgetMax !== undefined) {
+        demandeFilters.budgetMin = { lte: budgetMax };
+      }
+
+      // Appliquer les filtres de demande s'il y en a
+      if (Object.keys(demandeFilters).length > 0) {
+        where.demande = demandeFilters;
       }
 
       //? Recherche textuelle dans titre et description
@@ -963,7 +962,8 @@ export class PublicationDemandeService {
           },
         },
       };
-    } catch {
+    } catch (error) {
+      console.error('Erreur findAllWithFilters:', error);
       throw new InternalServerErrorException(
         'Erreur lors de la récupération des demandes avec filtres',
       );

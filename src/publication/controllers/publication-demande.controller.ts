@@ -27,11 +27,13 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { PublicationStatut, StatutDemande } from '@prisma/client';
 import { PublicationDemandeService } from '../services/publication-demande.service';
 import { TransformDemandeInterceptor } from 'src/common/interceptor/transform-demande.interceptor';
+import { PublicationDemandeSchedulerService } from '../services/publication-demande-scheduler.service';
 
 @Controller('publications/demandes')
 export class PublicationDemandeController {
   constructor(
     private readonly publicationDemandeService: PublicationDemandeService,
+    private readonly schedulerService: PublicationDemandeSchedulerService
   ) { }
 
   /**
@@ -71,36 +73,32 @@ export class PublicationDemandeController {
    */
   @Get('search')
   findAllWithFilters(
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('statut') statut?: PublicationStatut,
     @Query('demandeStatut') demandeStatut?: StatutDemande,
-    @Query('categorieId', new ParseIntPipe({ optional: true }))
-    categorieId?: number,
-    @Query('villeId', new ParseIntPipe({ optional: true })) villeId?: number,
-    @Query('paysId', new ParseIntPipe({ optional: true })) paysId?: number,
+    @Query('categorieId') categorieId?: string,
+    @Query('villeId') villeId?: string,
+    @Query('paysId') paysId?: string,
     @Query('search') search?: string,
-    @Query('auteurId', new ParseIntPipe({ optional: true }))
-    auteurId?: number,
-    @Query('budgetMin', new ParseIntPipe({ optional: true }))
-    budgetMin?: number,
-    @Query('budgetMax', new ParseIntPipe({ optional: true }))
-    budgetMax?: number,
+    @Query('auteurId') auteurId?: string,
+    @Query('budgetMin') budgetMin?: string,
+    @Query('budgetMax') budgetMax?: string,
     @Query('sortBy') sortBy?: 'createdAt' | 'updatedAt' | 'titre' | 'deadline',
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     return this.publicationDemandeService.findAllWithFilters({
-      page,
-      limit,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
       statut,
       demandeStatut,
-      categorieId,
-      villeId,
-      paysId,
+      categorieId: categorieId ? parseInt(categorieId, 10) : undefined,
+      villeId: villeId ? parseInt(villeId, 10) : undefined,
+      paysId: paysId ? parseInt(paysId, 10) : undefined,
       search,
-      auteurId,
-      budgetMin,
-      budgetMax,
+      auteurId: auteurId ? parseInt(auteurId, 10) : undefined,
+      budgetMin: budgetMin ? parseFloat(budgetMin) : undefined,
+      budgetMax: budgetMax ? parseFloat(budgetMax) : undefined,
       sortBy,
       sortOrder,
     });
@@ -133,6 +131,22 @@ export class PublicationDemandeController {
   }
 
   /**
+ * Vérifier manuellement les demandes expirées (ADMIN/SUPERADMIN)
+ * POST /publications/demandes/admin/check-expired
+ */
+  @Post('admin/check-expired')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  async checkExpiredDemandes() {
+    await this.schedulerService.checkExpiredDemandesManually();
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Vérification des demandes expirées effectuée avec succès',
+    };
+  }
+
+  /**
    * Récupérer mes demandes (USER)
    * GET /publications/demandes/my-demandes
    */
@@ -157,25 +171,22 @@ export class PublicationDemandeController {
   @Get('ville/:villeId')
   findByVille(
     @Param('villeId', ParseIntPipe) villeId: number,
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('demandeStatut') demandeStatut?: StatutDemande,
-    @Query('categorieId', new ParseIntPipe({ optional: true }))
-    categorieId?: number,
-    @Query('budgetMin', new ParseIntPipe({ optional: true }))
-    budgetMin?: number,
-    @Query('budgetMax', new ParseIntPipe({ optional: true }))
-    budgetMax?: number,
+    @Query('categorieId') categorieId?: string,
+    @Query('budgetMin') budgetMin?: string,
+    @Query('budgetMax') budgetMax?: string,
   ) {
     return this.publicationDemandeService.findAllWithFilters({
       villeId,
-      page,
-      limit,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
       demandeStatut,
-      categorieId,
-      budgetMin,
-      budgetMax,
-      statut: PublicationStatut.VALIDE, // Seulement les demandes validées
+      categorieId: categorieId ? parseInt(categorieId, 10) : undefined,
+      budgetMin: budgetMin ? parseFloat(budgetMin) : undefined,
+      budgetMax: budgetMax ? parseFloat(budgetMax) : undefined,
+      statut: PublicationStatut.VALIDE,
     });
   }
 
@@ -186,25 +197,22 @@ export class PublicationDemandeController {
   @Get('pays/:paysId')
   findByPays(
     @Param('paysId', ParseIntPipe) paysId: number,
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('demandeStatut') demandeStatut?: StatutDemande,
-    @Query('categorieId', new ParseIntPipe({ optional: true }))
-    categorieId?: number,
-    @Query('budgetMin', new ParseIntPipe({ optional: true }))
-    budgetMin?: number,
-    @Query('budgetMax', new ParseIntPipe({ optional: true }))
-    budgetMax?: number,
+    @Query('categorieId') categorieId?: string,
+    @Query('budgetMin') budgetMin?: string,
+    @Query('budgetMax') budgetMax?: string,
   ) {
     return this.publicationDemandeService.findAllWithFilters({
       paysId,
-      page,
-      limit,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
       demandeStatut,
-      categorieId,
-      budgetMin,
-      budgetMax,
-      statut: PublicationStatut.VALIDE, // Seulement les demandes validées
+      categorieId: categorieId ? parseInt(categorieId, 10) : undefined,
+      budgetMin: budgetMin ? parseFloat(budgetMin) : undefined,
+      budgetMax: budgetMax ? parseFloat(budgetMax) : undefined,
+      statut: PublicationStatut.VALIDE,
     });
   }
 

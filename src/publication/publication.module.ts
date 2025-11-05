@@ -5,11 +5,14 @@ import { PublicationOffreController } from './controllers/publication-offre.cont
 import { PublicationOffreService } from './services/publication-offre.service';
 import { PublicationDemandeService } from './services/publication-demande.service';
 import { PublicationDemandeController } from './controllers/publication-demande.controller';
+import { ScheduleModule } from '@nestjs/schedule';
+import { PublicationDemandeSchedulerService } from './services/publication-demande-scheduler.service';
 
 @Module({
-    imports:[PrismaModule, UploadModule],
+    imports:[PrismaModule, UploadModule, ScheduleModule.forRoot()],
     controllers: [PublicationOffreController, PublicationDemandeController],
-    providers: [PublicationOffreService, PublicationDemandeService],
+    providers: [PublicationOffreService, PublicationDemandeService, PublicationDemandeSchedulerService
+    ],
     exports: [PublicationOffreService, PublicationDemandeService]
 })
 export class PublicationModule {}
