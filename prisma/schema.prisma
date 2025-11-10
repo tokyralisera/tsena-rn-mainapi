@@ -46,6 +46,8 @@ model Utilisateur {
   updatedAt         DateTime @updatedAt
 
   publications Publication[]
+  infoPublications InfoPublication[]
+  infoPublicationsLike InfoPublicationLike[]
 
   @@map("utilisateurs")
 }
@@ -79,8 +81,6 @@ enum PublicationStatut {
 enum PublicationType {
   OFFRE
   DEMANDE
-  // INFORMATIONS 
-  // LOGISTIQUE
 }
 
 model Offre {
@@ -203,4 +203,42 @@ enum StatutDemande {
   TROUVEE
   NON_TROUVEE
   EXPIREE
+}
+
+
+model InfoPublication {
+  id        Int   @id @default(autoincrement())
+  title     String
+  content   String   @db.Text
+  images    String[]
+  
+  // Relation avec l'admin/superadmin qui publie
+  authorId  Int
+  author    Utilisateur     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // Likes
+  likes     InfoPublicationLike[]
+  likeCount Int      @default(0) 
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([createdAt]) 
+  @@index([authorId])
+  @@map("info_publications")
+}
+
+model InfoPublicationLike {
+  id        Int   @id @default(autoincrement())
+  publicationId Int
+  publication   InfoPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      Utilisateur     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  // Un utilisateur ne peut liker qu'une seule fois une publication
+  @@unique([publicationId, userId])
+  @@index([userId])
+  @@index([publicationId])
+  @@map("info_publication_likes")
 }

@@ -7,12 +7,14 @@ import { PublicationDemandeService } from './services/publication-demande.servic
 import { PublicationDemandeController } from './controllers/publication-demande.controller';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PublicationDemandeSchedulerService } from './services/publication-demande-scheduler.service';
+import { PublicationInfoController } from './controllers/publication-infos.controller';
+import { PublicationInfosService } from './services/publication-infos.service';
 
 @Module({
-    imports:[PrismaModule, UploadModule, ScheduleModule.forRoot()],
-    controllers: [PublicationOffreController, PublicationDemandeController],
-    providers: [PublicationOffreService, PublicationDemandeService, PublicationDemandeSchedulerService
+    imports: [PrismaModule, UploadModule, ScheduleModule.forRoot()],
+    controllers: [PublicationOffreController, PublicationDemandeController, PublicationInfoController],
+    providers: [PublicationOffreService, PublicationDemandeService, PublicationDemandeSchedulerService, PublicationInfosService
     ],
-    exports: [PublicationOffreService, PublicationDemandeService]
+    exports: [PublicationOffreService, PublicationDemandeService, PublicationInfosService]
 })
 export class PublicationModule {}
