@@ -1,5 +1,3 @@
-// src/modules/info-publication/services/info-publication.service.ts
-
 import {
     Injectable,
     ForbiddenException,
@@ -22,6 +20,7 @@ export class PublicationInfosService {
 
     /**
      * 1. Créer une publication d'info utile avec upload d'images
+     * Ordre: (dto, files, userId)
      */
     async createInfoPublication(
         data: CreateInfoPublicationDto,
@@ -86,13 +85,122 @@ export class PublicationInfosService {
     }
 
     /**
-     * 2. Modifier une publication avec possibilité d'upload de nouvelles images
+     * 2. Récupérer toutes les publications d'infos (tous les utilisateurs)
+     * Ordre: (userId, page, limit)
+     */
+    async getAllInfoPublications(userId?: number, page: number = 1, limit: number = 10) {
+        const skip = (page - 1) * limit;
+
+        const [publications, total] = await Promise.all([
+            this.prisma.infoPublication.findMany({
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    author: {
+                        select: {
+                            id: true,
+                            nomUtilisateur: true,
+                            prenomUtilisateur: true,
+                            role: true,
+                        },
+                    },
+                    likes: userId
+                        ? {
+                            where: { userId },
+                            select: { id: true },
+                        }
+                        : false,
+                    _count: {
+                        select: { likes: true },
+                    },
+                },
+            }),
+            this.prisma.infoPublication.count(),
+        ]);
+
+        // Formatter les résultats pour inclure isLikedByUser
+        const formattedPublications = publications.map((pub) => ({
+            id: pub.id,
+            title: pub.title,
+            content: pub.content,
+            images: pub.images,
+            authorId: pub.authorId,
+            likeCount: pub.likeCount,
+            createdAt: pub.createdAt,
+            updatedAt: pub.updatedAt,
+            author: pub.author,
+            isLikedByUser: userId ? pub.likes && pub.likes.length > 0 : false,
+            likesCount: pub._count.likes,
+        }));
+
+        return {
+            publications: formattedPublications,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
+
+    /**
+     * 3. Récupérer une publication spécifique
+     * Ordre: (id, userId)
+     */
+    async getInfoPublicationById(publicationId: number, userId?: number) {
+        const publication = await this.prisma.infoPublication.findUnique({
+            where: { id: publicationId },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        nomUtilisateur: true,
+                        prenomUtilisateur: true,
+                        role: true,
+                    },
+                },
+                likes: userId
+                    ? {
+                        where: { userId },
+                        select: { id: true },
+                    }
+                    : false,
+                _count: {
+                    select: { likes: true },
+                },
+            },
+        });
+
+        if (!publication) {
+            throw new NotFoundException('Publication non trouvée');
+        }
+
+        return {
+            id: publication.id,
+            title: publication.title,
+            content: publication.content,
+            images: publication.images,
+            authorId: publication.authorId,
+            likeCount: publication.likeCount,
+            createdAt: publication.createdAt,
+            updatedAt: publication.updatedAt,
+            author: publication.author,
+            isLikedByUser: userId ? publication.likes && publication.likes.length > 0 : false,
+            likesCount: publication._count.likes,
+        };
+    }
+
+    /**
+     * 4. Modifier une publication avec possibilité d'upload de nouvelles images
+     * Ordre: (id, dto, files, userId)
      */
     async updateInfoPublication(
         publicationId: number,
         data: UpdateInfoPublicationDto,
+        files: Express.Multer.File[],
         userId: number,
-        files?: Express.Multer.File[],
     ) {
         // Vérifier que la publication existe
         const existingPublication = await this.prisma.infoPublication.findUnique({
@@ -173,10 +281,11 @@ export class PublicationInfosService {
     }
 
     /**
-     * 3. Supprimer une publication (avec suppression des images Cloudinary)
+     * 5. Supprimer une publication (avec suppression des images Cloudinary)
+     * Ordre: (id, userId)
      */
     async deleteInfoPublication(publicationId: number, userId: number) {
-    // Vérifier que la publication existe
+        // Vérifier que la publication existe
         const existingPublication = await this.prisma.infoPublication.findUnique({
             where: { id: publicationId },
         });
@@ -218,113 +327,8 @@ export class PublicationInfosService {
     }
 
     /**
-     * 4. Récupérer toutes les publications d'infos (tous les utilisateurs)
-     */
-    async getAllInfoPublications(userId?: number, page: number = 1, limit: number = 10) {
-        const skip = (page - 1) * limit;
-
-        const [publications, total] = await Promise.all([
-            this.prisma.infoPublication.findMany({
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    author: {
-                        select: {
-                            id: true,
-                            nomUtilisateur: true,
-                            prenomUtilisateur: true,
-                            role: true,
-                        },
-                    },
-                    likes: userId
-                        ? {
-                            where: { userId },
-                            select: { id: true },
-                        }
-                        : false,
-                    _count: {
-                        select: { likes: true },
-                    },
-                },
-            }),
-            this.prisma.infoPublication.count(),
-        ]);
-
-        // Formatter les résultats pour inclure isLikedByUser
-        const formattedPublications = publications.map((pub) => ({
-            id: pub.id,
-            title: pub.title,
-            content: pub.content,
-            images: pub.images,
-            authorId: pub.authorId,
-            likeCount: pub.likeCount,
-            createdAt: pub.createdAt,
-            updatedAt: pub.updatedAt,
-            author: pub.author,
-            isLikedByUser: userId ? pub.likes && pub.likes.length > 0 : false,
-            likesCount: pub._count.likes,
-        }));
-
-        return {
-            publications: formattedPublications,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
-    }
-
-    /**
-     * Récupérer une publication spécifique
-     */
-    async getInfoPublicationById(userId: number, publicationId: number, ) {
-        const publication = await this.prisma.infoPublication.findUnique({
-            where: { id: publicationId },
-            include: {
-                author: {
-                    select: {
-                        id: true,
-                        nomUtilisateur: true,
-                        prenomUtilisateur: true,
-                        role: true,
-                    },
-                },
-                likes: userId
-                    ? {
-                        where: { userId },
-                        select: { id: true },
-                    }
-                    : false,
-                _count: {
-                    select: { likes: true },
-                },
-            },
-        });
-
-        if (!publication) {
-            throw new NotFoundException('Publication non trouvée');
-        }
-
-        return {
-            id: publication.id,
-            title: publication.title,
-            content: publication.content,
-            images: publication.images,
-            authorId: publication.authorId,
-            likeCount: publication.likeCount,
-            createdAt: publication.createdAt,
-            updatedAt: publication.updatedAt,
-            author: publication.author,
-            isLikedByUser: userId ? publication.likes && publication.likes.length > 0 : false,
-            likesCount: publication._count.likes,
-        };
-    }
-
-    /**
-     * 5. Liker/Unliker une publication (tous les utilisateurs)
+     * 6. Liker/Unliker une publication (tous les utilisateurs)
+     * Ordre: (id, userId)
      */
     async toggleLikeInfoPublication(publicationId: number, userId: number) {
         // Vérifier que la publication existe

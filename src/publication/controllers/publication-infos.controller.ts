@@ -1,5 +1,3 @@
-// src/modules/publication/controllers/publication-info.controller.ts
-
 import {
   Controller,
   Get,
@@ -16,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   ValidationPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -24,7 +23,6 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'src/common/types/enums';
 import { PublicationInfosService } from '../services/publication-infos.service';
 import { CreateInfoPublicationDto } from '../dto/infos/create-info-pub.dto';
-
 import { UpdateInfoPublicationDto } from '../dto/infos/update-info-pub.dto';
 import { InfoPublicationFilesInterceptor } from 'src/common/interceptor/info-publication.interceptor';
 
@@ -39,7 +37,7 @@ export class PublicationInfoController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPERADMIN)
-  @UseInterceptors(FilesInterceptor('images', 5), InfoPublicationFilesInterceptor)
+  @UseInterceptors(FilesInterceptor('images', 10), InfoPublicationFilesInterceptor)
   createInfoPublication(
     @Body(ValidationPipe) createInfoPublicationDto: CreateInfoPublicationDto,
     @UploadedFiles() files: Express.Multer.File[],
@@ -76,8 +74,14 @@ export class PublicationInfoController {
    */
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  getInfoPublicationById(@Request() req, @Param('id') id: number) {
-    return this.infoPublicationService.getInfoPublicationById(id, req.user.id);
+  getInfoPublicationById(
+    @Request() req,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.infoPublicationService.getInfoPublicationById(
+      id,
+      req.user.id,
+    );
   }
 
   /**
@@ -89,7 +93,7 @@ export class PublicationInfoController {
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @UseInterceptors(FilesInterceptor('images', 10), InfoPublicationFilesInterceptor)
   updateInfoPublication(
-    @Param('id') id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) updateInfoPublicationDto: UpdateInfoPublicationDto,
     @UploadedFiles() files: Express.Multer.File[],
     @Request() req,
@@ -97,8 +101,8 @@ export class PublicationInfoController {
     return this.infoPublicationService.updateInfoPublication(
       id,
       updateInfoPublicationDto,
-      req.user.id,
       files,
+      req.user.id,
     );
   }
 
@@ -109,8 +113,14 @@ export class PublicationInfoController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPERADMIN)
-  deleteInfoPublication(@Request() req, @Param('id') id: number) {
-    return this.infoPublicationService.deleteInfoPublication(id, req.user.id);
+  deleteInfoPublication(
+    @Request() req,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.infoPublicationService.deleteInfoPublication(
+      id,
+      req.user.id,
+    );
   }
 
   /**
@@ -120,7 +130,13 @@ export class PublicationInfoController {
   @Post(':id/like')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  toggleLikeInfoPublication(@Request() req, @Param('id') id: number) {
-    return this.infoPublicationService.toggleLikeInfoPublication(id, req.user.id);
+  toggleLikeInfoPublication(
+    @Request() req,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.infoPublicationService.toggleLikeInfoPublication(
+      id,
+      req.user.id,
+    );
   }
 }
