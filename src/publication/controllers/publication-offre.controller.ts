@@ -83,7 +83,7 @@ export class PublicationOffreController {
     );
   }
 
-  @Get('statistics')
+  @Get('admin/statistics')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPERADMIN)
