@@ -11,6 +11,9 @@ import { UploadModule } from './upload/upload.module';
 import { CategorieModule } from './categorie/categorie.module';
 import { PaysModule } from './pays/pays.module';
 import { VilleModule } from './ville/ville.module';
+import { ChatController } from './chat/chat.controller';
+import { ChatService } from './chat/chat.service';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -25,8 +28,9 @@ import { VilleModule } from './ville/ville.module';
     CategorieModule,
     PaysModule,
     VilleModule,
+    ChatModule,
   ],
-  controllers: [UtilisateursController, UploadController],
-  providers: [UtilisateursService],
+  controllers: [UtilisateursController, UploadController, ChatController],
+  providers: [UtilisateursService, ChatService],
 })
 export class AppModule {}
