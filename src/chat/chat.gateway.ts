@@ -1,4 +1,3 @@
-// src/chat/chat.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -9,7 +8,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import {  Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 
@@ -23,13 +22,13 @@ interface AuthenticatedSocket extends Socket {
 }
 
 @WebSocketGateway({
-  namespace: 'chat',
+  // namespace: 'chat', // ← Commenté temporairement pour tester
   cors: {
-    origin: '*', 
+    origin: '*',
     credentials: true,
     methods: ['GET', 'POST'],
   },
-  transports: ['websocket', 'polling'], 
+  transports: ['websocket', 'polling'],
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
@@ -68,7 +67,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             prenomUtilisateur: payload.prenomUtilisateur || 'Test',
           };
           
-          this.logger.log(`Client authenticated: User ${client.userId}`);
+          this.logger.log(`Client pre-authenticated from token: User ${client.userId}`);
         } catch (err) {
           this.logger.warn(`Token decode failed: ${err.message}`);
         }
@@ -81,8 +80,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         authenticated: !!client.userId
       });
     } catch (error) {
-      this.logger.error(`Connection error: ${error.message}`);
+      this.logger.error(`Connection error: ${error.message}`, error.stack);
       client.emit('error', { message: error.message });
+      // NE PAS déconnecter le client ici
     }
   }
 
