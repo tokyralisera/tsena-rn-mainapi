@@ -22,7 +22,7 @@ interface AuthenticatedSocket extends Socket {
 }
 
 @WebSocketGateway({
-  // namespace: 'chat', // ← Commenté temporairement pour tester
+  namespace: 'chat', 
   cors: {
     origin: '*',
     credentials: true,
