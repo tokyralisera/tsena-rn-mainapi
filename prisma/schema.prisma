@@ -34,9 +34,9 @@ model Utilisateur {
   id                Int      @id @default(autoincrement())
   nomUtilisateur    String
   prenomUtilisateur String
-  NIF               String      @unique
-  STAT              String      @unique
-  telephone         String      @unique
+  NIF               String   @unique
+  STAT              String   @unique
+  telephone         String   @unique
   password          String
   role              Role     @default(USER)
   sexe              Sexe
@@ -45,5 +45,256 @@ model Utilisateur {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  publications         Publication[]
+  infoPublications     InfoPublication[]
+  infoPublicationsLike InfoPublicationLike[]
+
+  // relations pour le chat
+  conversationsAsInitiator Conversation[] @relation("ConversationInitiator")
+  conversationsAsRecipient Conversation[] @relation("ConversationRecipient")
+  messages                 Message[]
+
   @@map("utilisateurs")
+}
+
+model Publication {
+  id          Int               @id @default(autoincrement())
+  titre       String
+  description String
+  type        PublicationType
+  statut      PublicationStatut @default(EN_ATTENTE)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  auteurId Int
+  auteur   Utilisateur        @relation(fields: [auteurId], references: [id], onDelete: Cascade)
+  offre    Offre?
+  demande  Demande?
+  images   PublicationImage[]
+  villeId  Int
+  ville    Ville              @relation(fields: [villeId], references: [id])
+
+  @@map("publications")
+}
+
+enum PublicationStatut {
+  EN_ATTENTE
+  VALIDE
+  REJETE
+}
+
+enum PublicationType {
+  OFFRE
+  DEMANDE
+}
+
+model Offre {
+  id            Int         @id @default(autoincrement())
+  statut        OffreStatut @default(NON_VENDU)
+  publicationId Int         @unique
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  produits      Produit[]
+
+  @@map("offres")
+}
+
+enum OffreStatut {
+  VENDU
+  NON_VENDU
+}
+
+model Produit {
+  id           Int         @id @default(autoincrement())
+  libelle      String
+  prixUnitaire Float
+  quantite     Int
+  uniteMesure  UniteMesure
+
+  offreId     Int
+  offre       Offre     @relation(fields: [offreId], references: [id], onDelete: Cascade)
+  categorieId Int
+  categorie   Categorie @relation(fields: [categorieId], references: [id])
+
+  @@map("produits")
+}
+
+enum UniteMesure {
+  PIECE
+  TONNE
+  KILOGRAMME
+  LITRE
+  KILOMETRE
+  HECTARE
+}
+
+model Categorie {
+  id        Int      @id @default(autoincrement())
+  nom       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  produits        Produit[]
+  demandeProduits DemandeProduit[]
+
+  @@map("categories")
+}
+
+model PublicationImage {
+  id            Int         @id @default(autoincrement())
+  url           String
+  publicationId Int
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@map("publication_images")
+}
+
+model Pays {
+  id        Int      @id @default(autoincrement())
+  nom       String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  villes    Ville[]
+
+  @@map("pays")
+}
+
+model Ville {
+  id           Int           @id @default(autoincrement())
+  nom          String
+  codePostal   String?
+  paysId       Int
+  pays         Pays          @relation(fields: [paysId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  publications Publication[]
+
+  @@unique([nom, paysId])
+  @@map("villes")
+}
+
+model Demande {
+  id            Int           @id @default(autoincrement())
+  statutDemande StatutDemande @default(NON_TROUVEE)
+  deadline      DateTime?
+  budgetMin     Float?
+  budgetMax     Float?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  publicationId Int         @unique
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  produits DemandeProduit[]
+
+  @@map("demandes")
+}
+
+model DemandeProduit {
+  id          Int          @id @default(autoincrement())
+  nom         String
+  quantite    Int? // Quantité souhaitée (optionnel)
+  uniteMesure UniteMesure?
+  demandeId   Int
+  demande     Demande      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+
+  categorieId Int
+  categorie   Categorie @relation(fields: [categorieId], references: [id])
+
+  @@map("demande_produits")
+}
+
+enum StatutDemande {
+  TROUVEE
+  NON_TROUVEE
+  EXPIREE
+}
+
+model InfoPublication {
+  id      Int      @id @default(autoincrement())
+  title   String
+  content String   @db.Text
+  images  String[]
+
+  // Relation avec l'admin/superadmin qui publie
+  authorId Int
+  author   Utilisateur @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Likes
+  likes     InfoPublicationLike[]
+  likeCount Int                   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([authorId])
+  @@map("info_publications")
+}
+
+model InfoPublicationLike {
+  id            Int             @id @default(autoincrement())
+  publicationId Int
+  publication   InfoPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          Utilisateur     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime        @default(now())
+
+  // Un utilisateur ne peut liker qu'une seule fois une publication
+  @@unique([publicationId, userId])
+  @@index([userId])
+  @@index([publicationId])
+  @@map("info_publication_likes")
+}
+
+model Conversation {
+  id            Int    @id @default(autoincrement())
+  titre         String
+  publicationId Int
+
+  // Les deux participants
+  initiatorId Int // Celui qui clique sur "L'offre m'intéresse"
+  recipientId Int // Le propriétaire de la publication
+
+  initiator Utilisateur @relation("ConversationInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  recipient Utilisateur @relation("ConversationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  // Statuts de lecture pour chaque participant
+  lastReadByInitiator DateTime?
+  lastReadByRecipient DateTime?
+
+  // Soft delete et archivage
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Éviter les doublons : une seule conversation par publication et paire d'utilisateurs
+  @@unique([publicationId, initiatorId, recipientId])
+  @@index([initiatorId])
+  @@index([recipientId])
+  @@index([publicationId])
+  @@map("conversations")
+}
+
+model Message {
+  id      Int    @id @default(autoincrement())
+  contenu String @db.Text
+
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId Int
+  sender   Utilisateur @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
 }

@@ -1,5 +1,4 @@
 import {
-  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -7,7 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Langue, Role, Sexe } from 'src/types/enums';
+import { Langue, Role, Sexe } from 'src/common/types/enums';
 
 export class RegisterDto {
   @IsString()
@@ -44,7 +43,4 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(Langue)
   langue: Langue;
-
-  @IsBoolean()
-  isActive: boolean
 }
