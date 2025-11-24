@@ -148,9 +148,9 @@ export class PublicationDemandeController {
 
   /**
    * Récupérer mes demandes (USER)
-   * GET /publications/demandes/my-demandes
+   * GET /publications/demandes/me
    */
-  @Get('my-demandes')
+  @Get('me')
   @UseGuards(JwtAuthGuard)
   findMyPublications(
     @Request() req,
